@@ -1,58 +1,49 @@
 import { useCallback, useState } from 'react'
 
 export interface UseExpandedStepsResult {
-  expandedIds: ReadonlySet<number>
-  expandedCount: number
+  allExpanded: boolean
   isExpanded: (id: number) => boolean
   toggle: (id: number) => void
-  expandAll: (ids: readonly number[]) => void
+  expandAll: () => void
   collapseAll: () => void
 }
 
 /**
- * Gère l'ouverture et la fermeture des étapes de la feuille de route.
- * La logique d'état est ainsi isolée des composants de présentation.
+ * Gère l'ouverture des étapes : l'étape en cours est ouverte par défaut, et un
+ * choix de l'utilisateur sur une étape prend ensuite le dessus sur ce défaut.
  */
 export function useExpandedSteps(
-  initialIds: readonly number[] = [],
+  stepIds: readonly number[],
+  currentStepId: number | null,
 ): UseExpandedStepsResult {
-  const [expandedIds, setExpandedIds] = useState<ReadonlySet<number>>(
-    () => new Set(initialIds),
+  const [choices, setChoices] = useState<ReadonlyMap<number, boolean>>(
+    () => new Map(),
   )
 
   const isExpanded = useCallback(
-    (id: number) => expandedIds.has(id),
-    [expandedIds],
+    (id: number) => choices.get(id) ?? id === currentStepId,
+    [choices, currentStepId],
   )
 
-  const toggle = useCallback((id: number) => {
-    setExpandedIds((current) => {
-      const next = new Set(current)
+  const toggle = useCallback(
+    (id: number) => {
+      setChoices((current) => {
+        const expanded = current.get(id) ?? id === currentStepId
+        return new Map(current).set(id, !expanded)
+      })
+    },
+    [currentStepId],
+  )
 
-      if (next.has(id)) {
-        next.delete(id)
-      } else {
-        next.add(id)
-      }
-
-      return next
-    })
-  }, [])
-
-  const expandAll = useCallback((ids: readonly number[]) => {
-    setExpandedIds(new Set(ids))
-  }, [])
-
-  const collapseAll = useCallback(() => {
-    setExpandedIds(new Set())
-  }, [])
+  const setAll = (expanded: boolean) => {
+    setChoices(new Map(stepIds.map((id) => [id, expanded])))
+  }
 
   return {
-    expandedIds,
-    expandedCount: expandedIds.size,
+    allExpanded: stepIds.every(isExpanded),
     isExpanded,
     toggle,
-    expandAll,
-    collapseAll,
+    expandAll: () => setAll(true),
+    collapseAll: () => setAll(false),
   }
 }

@@ -15,7 +15,7 @@ export function ThemeToggle({ theme, onToggle }: ThemeToggleProps) {
       type="button"
       role="switch"
       aria-checked={isDark}
-      aria-label={`Activer le thème ${isDark ? 'clair' : 'sombre'}`}
+      aria-label="Thème sombre"
       title={`Passer en thème ${isDark ? 'clair' : 'sombre'}`}
       onClick={onToggle}
       className="group relative inline-flex h-9 w-16 flex-none cursor-pointer items-center rounded-full border border-line bg-surface p-1 transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60 dark:focus-visible:ring-cyan-400/60"

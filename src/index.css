@@ -11,7 +11,6 @@
   --color-canvas: var(--canvas);
   --color-surface: var(--surface);
   --color-surface-strong: var(--surface-strong);
-  --color-surface-subtle: var(--surface-subtle);
   --color-surface-hover: var(--surface-hover);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
@@ -20,23 +19,24 @@
   --color-ink-subtle: var(--ink-subtle);
   --color-node: var(--node);
   --color-progress-track: var(--progress-track);
+  --color-accent: var(--accent);
 }
 
 :root {
   --canvas: #f6f7fb;
   --surface: rgb(255 255 255 / 0.72);
   --surface-strong: rgb(255 255 255 / 0.92);
-  --surface-subtle: rgb(15 23 42 / 0.03);
   --surface-hover: rgb(255 255 255 / 0.92);
-  --line: rgb(15 23 42 / 0.08);
-  --line-strong: rgb(15 23 42 / 0.16);
+  --line: rgb(15 23 42 / 0.1);
+  --line-strong: rgb(15 23 42 / 0.2);
   --ink: #0f172a;
   --ink-muted: #475569;
-  --ink-subtle: #64748b;
+  --ink-subtle: #5f6f85;
   --node: #ffffff;
   --progress-track: rgb(15 23 42 / 0.08);
   --grid: rgb(15 23 42 / 0.055);
   --shadow-card: 0 24px 80px -40px rgb(79 70 229 / 0.28);
+  --accent: #0e7490;
   color-scheme: light;
 }
 
@@ -44,17 +44,17 @@
   --canvas: #05060c;
   --surface: rgb(255 255 255 / 0.025);
   --surface-strong: rgb(255 255 255 / 0.055);
-  --surface-subtle: rgb(255 255 255 / 0.02);
   --surface-hover: rgb(255 255 255 / 0.045);
-  --line: rgb(255 255 255 / 0.07);
-  --line-strong: rgb(255 255 255 / 0.14);
+  --line: rgb(255 255 255 / 0.08);
+  --line-strong: rgb(255 255 255 / 0.16);
   --ink: #f1f5f9;
-  --ink-muted: #94a3b8;
-  --ink-subtle: #7f8da3;
+  --ink-muted: #a2acbd;
+  --ink-subtle: #8d9ab0;
   --node: #080a12;
-  --progress-track: rgb(255 255 255 / 0.06);
+  --progress-track: rgb(255 255 255 / 0.07);
   --grid: rgb(148 163 184 / 0.055);
   --shadow-card: 0 24px 80px -40px rgb(99 102 241 / 0.55);
+  --accent: #67d4ec;
   color-scheme: dark;
 }
 
@@ -80,7 +80,7 @@
 
   ::selection {
     background-color: rgb(139 92 246 / 0.35);
-    color: #fff;
+    color: var(--ink);
   }
 }
 

@@ -1,71 +1,78 @@
 import { useCallback, useEffect, useState } from 'react'
 import type { Theme } from '../types/theme'
 
+// Le script en ligne de index.html utilise les mêmes valeurs : il s'exécute
+// avant le bundle et ne peut pas les importer. Modifier les deux ensemble.
 const STORAGE_KEY = 'tuto-code-theme'
+const THEME_COLORS: Record<Theme, string> = {
+  dark: '#05060c',
+  light: '#f6f7fb',
+}
+const LIGHT_SCHEME_QUERY = '(prefers-color-scheme: light)'
 
-function getInitialTheme(): Theme {
-  if (typeof document !== 'undefined') {
-    const current = document.documentElement.dataset.theme
-
-    if (current === 'light' || current === 'dark') {
-      return current
-    }
-  }
-
+function getStoredTheme(): Theme | null {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY)
-
-    if (stored === 'light' || stored === 'dark') {
-      return stored
-    }
+    return stored === 'light' || stored === 'dark' ? stored : null
   } catch {
     // localStorage peut être indisponible (navigation privée, etc.).
+    return null
   }
+}
 
-  return window.matchMedia('(prefers-color-scheme: light)').matches
-    ? 'light'
-    : 'dark'
+function storeTheme(theme: Theme) {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, theme)
+  } catch {
+    // On ignore les erreurs de stockage : le thème reste appliqué.
+  }
+}
+
+/** Le script de index.html a déjà résolu le thème : on reprend sa valeur. */
+function getInitialTheme(): Theme {
+  return document.documentElement.dataset.theme === 'light' ? 'light' : 'dark'
 }
 
 export interface UseThemeResult {
   theme: Theme
-  setTheme: (theme: Theme) => void
   toggleTheme: () => void
 }
 
 /**
- * Gère le thème actif et sa persistance.
- * Le thème est appliqué sur <html data-theme="..."> pour rester accessible
- * depuis les variables CSS et l'attribut color-scheme.
+ * Gère le thème actif. Il suit la préférence du système tant que l'utilisateur
+ * n'a pas fait de choix ; seul un choix explicite est enregistré.
  */
 export function useTheme(): UseThemeResult {
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme)
+  const [theme, setTheme] = useState<Theme>(getInitialTheme)
 
   useEffect(() => {
     const root = document.documentElement
     root.dataset.theme = theme
     root.style.colorScheme = theme
 
-    try {
-      window.localStorage.setItem(STORAGE_KEY, theme)
-    } catch {
-      // On ignore les erreurs de stockage : le thème reste appliqué.
-    }
-
-    const themeColor = document.querySelector('meta[name="theme-color"]')
-    themeColor?.setAttribute(
-      'content',
-      theme === 'dark' ? '#05060c' : '#f6f7fb',
-    )
+    document
+      .querySelector('meta[name="theme-color"]')
+      ?.setAttribute('content', THEME_COLORS[theme])
   }, [theme])
 
-  const setTheme = useCallback((nextTheme: Theme) => {
-    setThemeState(nextTheme)
+  useEffect(() => {
+    const query = window.matchMedia(LIGHT_SCHEME_QUERY)
+
+    const handleChange = (event: MediaQueryListEvent) => {
+      if (getStoredTheme() === null) {
+        setTheme(event.matches ? 'light' : 'dark')
+      }
+    }
+
+    query.addEventListener('change', handleChange)
+    return () => query.removeEventListener('change', handleChange)
   }, [])
 
   const toggleTheme = useCallback(() => {
-    setThemeState((current) => (current === 'dark' ? 'light' : 'dark'))
-  }, [])
+    const nextTheme = theme === 'dark' ? 'light' : 'dark'
+    storeTheme(nextTheme)
+    setTheme(nextTheme)
+  }, [theme])
 
-  return { theme, setTheme, toggleTheme }
+  return { theme, toggleTheme }
 }
