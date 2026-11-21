@@ -13,6 +13,28 @@ create table public.profiles (
   created_at timestamptz not null default now()
 );
 
+-- Nom unique, sans tenir compte des majuscules (« Moses » = « moses »).
+create unique index profiles_username_unique
+  on public.profiles (lower(username));
+
+-- Vérification du nom par le formulaire d'inscription, avant de créer le
+-- compte. Ne renvoie qu'un booléen : aucune donnée de profil n'est exposée.
+create function public.is_username_available(name text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  select not exists (
+    select 1 from public.profiles
+    where lower(username) = lower(btrim(name))
+  );
+$$;
+
+revoke execute on function public.is_username_available(text) from public;
+grant execute on function public.is_username_available(text) to anon, authenticated;
+
 alter table public.profiles enable row level security;
 revoke all on public.profiles from anon, authenticated;
 grant select on public.profiles to authenticated;
@@ -29,7 +51,7 @@ create policy "Chacun modifie son profil"
   with check ((select auth.uid()) = user_id);
 
 -- Le profil est créé en même temps que le compte. Une erreur ici (nom
--- invalide) annule aussi la création du compte.
+-- invalide ou déjà pris) annule aussi la création du compte.
 create function public.handle_new_user()
 returns trigger
 language plpgsql
