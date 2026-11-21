@@ -47,6 +47,9 @@ export interface UseAuthResult {
 const NETWORK_ERROR =
   'Le service de comptes est injoignable. Réessaie dans un moment.'
 const NOT_CONFIGURED = 'Les comptes ne sont pas configurés sur ce site.'
+const USERNAME_TAKEN = 'Ce nom d’utilisateur est déjà pris. Choisis-en un autre.'
+const EMAIL_TAKEN =
+  'Un compte existe déjà avec cette adresse. Connecte-toi plutôt.'
 
 function describeAuthError(error: AuthError) {
   switch (error.code) {
@@ -141,6 +144,19 @@ export function useAuth(): UseAuthResult {
       )
     }
 
+    const { data: available, error: availabilityError } = await supabase.rpc(
+      'is_username_available',
+      { name: username },
+    )
+
+    if (availabilityError) {
+      return signUpFailure(NETWORK_ERROR)
+    }
+
+    if (available === false) {
+      return signUpFailure(USERNAME_TAKEN)
+    }
+
     const { data, error } = await supabase.auth.signUp({
       email: input.email.trim(),
       password: input.password,
@@ -151,7 +167,21 @@ export function useAuth(): UseAuthResult {
     })
 
     if (error) {
-      return signUpFailure(describeAuthError(error))
+      // Le nom a été pris entre la vérification et l'inscription : l'index
+      // unique fait échouer le trigger, et Supabase ne renvoie qu'une erreur
+      // générique de base de données.
+      return signUpFailure(
+        error.code === 'unexpected_failure'
+          ? USERNAME_TAKEN
+          : describeAuthError(error),
+      )
+    }
+
+    // Adresse déjà utilisée : Supabase ne renvoie pas d'erreur (pour ne pas
+    // révéler quelles adresses ont un compte) mais un utilisateur sans
+    // identité, et n'envoie aucun e-mail.
+    if (data.user && data.user.identities?.length === 0) {
+      return signUpFailure(EMAIL_TAKEN)
     }
 
     // Sans session, « Confirm email » est actif : le compte attend le lien.

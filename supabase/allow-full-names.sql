@@ -11,6 +11,4 @@ alter table public.profiles
     and username !~ '[[:cntrl:]]'
   );
 
--- Deux personnes peuvent porter le même nom.
-drop index if exists public.profiles_username_unique;
-drop function if exists public.is_username_available(text);
+-- L'unicité des noms est rétablie par unique-usernames.sql (à lancer ensuite).

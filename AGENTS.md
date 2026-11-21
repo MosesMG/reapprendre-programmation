@@ -59,7 +59,7 @@ appareil, au lieu d'un fichier JSON unique sur le serveur de dev.
 - **En-tête** : `AccountControl.tsx` (bouton connexion / lien vers le compte).
   Styles de formulaire partagés dans `formStyles.ts`, `FormError.tsx`.
 - **Validation** : `src/lib/credentials.ts` — nom de 2 à 50 caractères (noms
-  complets acceptés, doublons autorisés), mot de passe ≥ 8, téléphone au format
+  complets acceptés ; unique depuis le 21/11, voir plus bas), mot de passe ≥ 8, téléphone au format
   international `+XXXXXXXX` (le 0 national est retiré, sauf Italie, Côte
   d'Ivoire, Gabon, Congo).
 - **Base de données** : `supabase/`
@@ -88,6 +88,11 @@ défaut) et le site ne donnait aucun retour.
   → Site URL `https://reapprendre-programmation.vercel.app`, Redirect URLs
   `https://reapprendre-programmation.vercel.app/**` et `http://localhost:5173/**` ;
   coller le modèle dans Emails → Templates → Confirm signup.
+- **Noms uniques** (revient sur le choix « doublons autorisés ») : index
+  unique sur `lower(username)` + fonction `is_username_available` appelée
+  avant `signUp`. Migration : `supabase/unique-usernames.sql`.
+- **Adresse déjà utilisée** : Supabase ne renvoie pas d'erreur et n'envoie pas
+  de mail ; on le détecte via `user.identities` vide et on l'affiche.
 
 ## Choix à respecter
 
