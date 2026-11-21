@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { AccountPage } from './components/AccountPage'
+import { EmailConfirmationNotice } from './components/EmailConfirmationNotice'
 import { NextObjective } from './components/NextObjective'
 import { PageBackground } from './components/PageBackground'
 import { PageFooter } from './components/PageFooter'
@@ -9,6 +10,7 @@ import { ProgressNotice } from './components/ProgressNotice'
 import { RoadmapSection } from './components/RoadmapSection'
 import { principles, roadmapSteps } from './data/roadmap'
 import { useAuth } from './hooks/useAuth'
+import { useEmailConfirmation } from './hooks/useEmailConfirmation'
 import { ACCOUNT_HREF, HOME_HREF, useHashRoute } from './hooks/useHashRoute'
 import { useProgress } from './hooks/useProgress'
 import { useTheme } from './hooks/useTheme'
@@ -23,6 +25,7 @@ function App() {
   const route = useHashRoute()
   const { theme, toggleTheme } = useTheme()
   const auth = useAuth()
+  const confirmation = useEmailConfirmation()
   const { status, saveFailed, isDone, setTaskDone } = useProgress(
     auth.status,
     auth.userId,
@@ -66,6 +69,11 @@ function App() {
         )
       ) : (
         <main className="mx-auto flex w-full max-w-4xl flex-1 flex-col gap-9 px-6 pb-4">
+          <EmailConfirmationNotice
+            result={confirmation.result}
+            onDismiss={confirmation.dismiss}
+          />
+
           <ProgressNotice status={status} saveFailed={saveFailed} />
 
           {ready && <NextObjective next={next} />}
