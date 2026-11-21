@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { supabase } from '../lib/supabase'
+import type { AuthStatus } from './useAuth'
 
-const API_PATH = '/api/progress'
+const STORAGE_KEY = 'tuto-code-progress'
+const TABLE = 'task_progress'
+const TASK_ID_PATTERN = /^[a-z0-9-]{1,64}$/
 
 export type ProgressStatus = 'loading' | 'ready' | 'unavailable'
 
@@ -11,26 +15,92 @@ export interface UseProgressResult {
   setTaskDone: (taskId: string, done: boolean) => void
 }
 
-async function fetchDoneTaskIds(signal: AbortSignal): Promise<string[]> {
-  const response = await fetch(API_PATH, { signal })
+function readLocalIds(): string[] {
+  try {
+    const parsed: unknown = JSON.parse(
+      window.localStorage.getItem(STORAGE_KEY) ?? '[]',
+    )
 
-  if (!response.ok) {
-    throw new Error(`Lecture impossible (HTTP ${response.status}).`)
+    return Array.isArray(parsed)
+      ? parsed.filter(
+          (id): id is string =>
+            typeof id === 'string' && TASK_ID_PATTERN.test(id),
+        )
+      : []
+  } catch {
+    // Contenu illisible ou localStorage indisponible (navigation privée, etc.).
+    return []
   }
-
-  const { doneTaskIds } = (await response.json()) as { doneTaskIds: string[] }
-  return doneTaskIds
 }
 
-async function saveTask(taskId: string, done: boolean) {
-  const response = await fetch(API_PATH, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ taskId, done }),
-  })
+function writeLocalIds(ids: ReadonlySet<string>) {
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]))
+    return true
+  } catch {
+    return false
+  }
+}
 
-  if (!response.ok) {
-    throw new Error(`Enregistrement impossible (HTTP ${response.status}).`)
+function clearLocalIds() {
+  try {
+    window.localStorage.removeItem(STORAGE_KEY)
+  } catch {
+    // Rien à effacer si localStorage est indisponible.
+  }
+}
+
+/** Ajoute au compte les coches locales, puis charge toute sa progression. */
+async function loadAccountIds(userId: string): Promise<string[]> {
+  if (!supabase) {
+    throw new Error('Supabase n’est pas configuré.')
+  }
+
+  const localIds = readLocalIds()
+
+  if (localIds.length > 0) {
+    const { error } = await supabase.from(TABLE).upsert(
+      localIds.map((task_id) => ({ user_id: userId, task_id })),
+      { onConflict: 'user_id,task_id', ignoreDuplicates: true },
+    )
+
+    if (error) {
+      throw error
+    }
+
+    // Effacées seulement une fois enregistrées : rien n'est perdu en cas d'échec.
+    clearLocalIds()
+  }
+
+  const { data, error } = await supabase.from(TABLE).select('task_id')
+
+  if (error) {
+    throw error
+  }
+
+  return data.map((row) => row.task_id as string)
+}
+
+async function saveAccountTask(userId: string, taskId: string, done: boolean) {
+  if (!supabase) {
+    throw new Error('Supabase n’est pas configuré.')
+  }
+
+  const { error } = done
+    ? await supabase
+        .from(TABLE)
+        .upsert(
+          { user_id: userId, task_id: taskId },
+          { onConflict: 'user_id,task_id', ignoreDuplicates: true },
+        )
+    : await supabase
+        .from(TABLE)
+        .delete()
+        .eq('user_id', userId)
+        .eq('task_id', taskId)
+
+  if (error) {
+    throw error
   }
 }
 
@@ -51,48 +121,88 @@ function withTask(
 }
 
 /**
- * Charge et enregistre les objectifs terminés via l'API du serveur Vite,
- * qui les conserve dans data/progress.json.
+ * Conserve les objectifs terminés dans le compte de la personne connectée, ou
+ * dans ce navigateur (localStorage) sans compte.
  */
-export function useProgress(): UseProgressResult {
+export function useProgress(
+  authStatus: AuthStatus,
+  userId: string | null,
+): UseProgressResult {
   const [doneIds, setDoneIds] = useState<ReadonlySet<string>>(() => new Set())
   const [status, setStatus] = useState<ProgressStatus>('loading')
   const [saveFailed, setSaveFailed] = useState(false)
   const saveQueue = useRef<Promise<void>>(Promise.resolve())
+  const currentUserId = useRef(userId)
+  currentUserId.current = userId
 
   useEffect(() => {
-    const controller = new AbortController()
+    let cancelled = false
 
-    fetchDoneTaskIds(controller.signal)
+    setStatus('loading')
+    setSaveFailed(false)
+    setDoneIds(new Set())
+
+    if (authStatus === 'loading') {
+      return
+    }
+
+    if (!userId) {
+      setDoneIds(new Set(readLocalIds()))
+      setStatus('ready')
+      return
+    }
+
+    loadAccountIds(userId)
       .then((ids) => {
-        setDoneIds(new Set(ids))
-        setStatus('ready')
+        if (!cancelled) {
+          setDoneIds(new Set(ids))
+          setStatus('ready')
+        }
       })
       .catch(() => {
-        if (!controller.signal.aborted) {
+        if (!cancelled) {
           setStatus('unavailable')
         }
       })
 
-    return () => controller.abort()
-  }, [])
+    return () => {
+      cancelled = true
+    }
+  }, [authStatus, userId])
 
   const isDone = useCallback((taskId: string) => doneIds.has(taskId), [doneIds])
 
-  const setTaskDone = useCallback((taskId: string, done: boolean) => {
-    setDoneIds((current) => withTask(current, taskId, done))
-
-    // Les envois restent dans l'ordre des clics.
-    saveQueue.current = saveQueue.current.then(async () => {
-      try {
-        await saveTask(taskId, done)
-        setSaveFailed(false)
-      } catch {
-        setDoneIds((current) => withTask(current, taskId, !done))
-        setSaveFailed(true)
+  const setTaskDone = useCallback(
+    (taskId: string, done: boolean) => {
+      if (!userId) {
+        const saved = writeLocalIds(withTask(new Set(readLocalIds()), taskId, done))
+        setDoneIds((current) => withTask(current, taskId, done))
+        setSaveFailed(!saved)
+        return
       }
-    })
-  }, [])
+
+      setDoneIds((current) => withTask(current, taskId, done))
+
+      // Les envois restent dans l'ordre des clics.
+      saveQueue.current = saveQueue.current.then(async () => {
+        try {
+          await saveAccountTask(userId, taskId, done)
+
+          if (currentUserId.current === userId) {
+            setSaveFailed(false)
+          }
+        } catch {
+          // La personne a pu se déconnecter entre-temps : ne pas toucher à
+          // l'affichage d'un autre compte.
+          if (currentUserId.current === userId) {
+            setDoneIds((current) => withTask(current, taskId, !done))
+            setSaveFailed(true)
+          }
+        }
+      })
+    },
+    [userId],
+  )
 
   return { status, saveFailed, isDone, setTaskDone }
 }
