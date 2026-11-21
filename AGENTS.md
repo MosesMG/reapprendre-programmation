@@ -72,6 +72,23 @@ appareil, au lieu d'un fichier JSON unique sur le serveur de dev.
 - **Config** : `.env.example` (`VITE_SUPABASE_URL`,
   `VITE_SUPABASE_PUBLISHABLE_KEY`) ; `.env` ajouté au `.gitignore`.
 
+### 21/11/2026 — Confirmation de l'adresse e-mail
+Le lien du mail renvoyait vers `localhost:3000` (« Site URL » Supabase par
+défaut) et le site ne donnait aucun retour.
+
+- Le lien du mail pointe vers `<site>/?token_hash=…&type=email` ; le site le
+  valide avec `verifyOtp` (`useEmailConfirmation.ts`), nettoie l'adresse et
+  affiche un message (`EmailConfirmationNotice.tsx`). Marche même si le mail
+  est ouvert sur un autre appareil, et ne touche pas au routage par hash.
+- `emailRedirectTo` = page courante (`src/lib/siteUrl.ts`).
+- Bouton « Renvoyer le lien de confirmation » après l'inscription et quand la
+  connexion est refusée pour adresse non confirmée (`useAuth.resendConfirmation`).
+- Modèle d'e-mail en français : `supabase/templates/confirm-signup.html`.
+- **Réglages Supabase (tableau de bord)** : Authentication → URL Configuration
+  → Site URL `https://reapprendre-programmation.vercel.app`, Redirect URLs
+  `https://reapprendre-programmation.vercel.app/**` et `http://localhost:5173/**` ;
+  coller le modèle dans Emails → Templates → Confirm signup.
+
 ## Choix à respecter
 
 - Ne jamais renommer l'`id` d'un objectif dans `src/data/roadmap.ts` : il est

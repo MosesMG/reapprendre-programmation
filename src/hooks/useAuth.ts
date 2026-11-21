@@ -7,6 +7,7 @@ import {
   isValidUsername,
   normalizeUsername,
 } from '../lib/credentials'
+import { getSiteUrl } from '../lib/siteUrl'
 import { supabase } from '../lib/supabase'
 
 export type AuthStatus = 'loading' | 'signed-out' | 'signed-in'
@@ -23,15 +24,22 @@ export interface SignUpResult {
   needsEmailConfirmation: boolean
 }
 
-/** Sauf `signUp`, chaque action renvoie un message d'erreur, ou `null` si tout va bien. */
+export interface SignInResult {
+  error: string | null
+  /** Le compte existe, mais l'adresse n'a pas encore été confirmée. */
+  needsEmailConfirmation: boolean
+}
+
+/** Sauf `signIn` et `signUp`, chaque action renvoie un message d'erreur, ou `null` si tout va bien. */
 export interface UseAuthResult {
   enabled: boolean
   status: AuthStatus
   userId: string | null
   username: string | null
   email: string | null
-  signIn: (email: string, password: string) => Promise<string | null>
+  signIn: (email: string, password: string) => Promise<SignInResult>
   signUp: (input: SignUpInput) => Promise<SignUpResult>
+  resendConfirmation: (email: string) => Promise<string | null>
   signOut: () => Promise<string | null>
   deleteAccount: () => Promise<string | null>
 }
@@ -45,7 +53,7 @@ function describeAuthError(error: AuthError) {
     case 'invalid_credentials':
       return 'E-mail ou mot de passe incorrect.'
     case 'email_not_confirmed':
-      return 'Confirme d’abord ton adresse avec le lien reçu par e-mail.'
+      return 'Ton adresse n’est pas encore confirmée : clique sur le lien reçu par e-mail.'
     case 'user_already_exists':
     case 'email_exists':
       return 'Un compte existe déjà avec cette adresse.'
@@ -100,7 +108,7 @@ export function useAuth(): UseAuthResult {
 
   const signIn = useCallback(async (rawEmail: string, password: string) => {
     if (!supabase) {
-      return NOT_CONFIGURED
+      return { error: NOT_CONFIGURED, needsEmailConfirmation: false }
     }
 
     const { error } = await supabase.auth.signInWithPassword({
@@ -108,7 +116,10 @@ export function useAuth(): UseAuthResult {
       password,
     })
 
-    return error ? describeAuthError(error) : null
+    return {
+      error: error ? describeAuthError(error) : null,
+      needsEmailConfirmation: error?.code === 'email_not_confirmed',
+    }
   }, [])
 
   const signUp = useCallback(async (input: SignUpInput) => {
@@ -135,7 +146,7 @@ export function useAuth(): UseAuthResult {
       password: input.password,
       options: {
         data: { username },
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: getSiteUrl(),
       },
     })
 
@@ -145,6 +156,20 @@ export function useAuth(): UseAuthResult {
 
     // Sans session, « Confirm email » est actif : le compte attend le lien.
     return { error: null, needsEmailConfirmation: !data.session }
+  }, [])
+
+  const resendConfirmation = useCallback(async (rawEmail: string) => {
+    if (!supabase) {
+      return NOT_CONFIGURED
+    }
+
+    const { error } = await supabase.auth.resend({
+      type: 'signup',
+      email: rawEmail.trim(),
+      options: { emailRedirectTo: getSiteUrl() },
+    })
+
+    return error ? describeAuthError(error) : null
   }, [])
 
   const signOut = useCallback(async () => {
@@ -179,6 +204,7 @@ export function useAuth(): UseAuthResult {
     email,
     signIn,
     signUp,
+    resendConfirmation,
     signOut,
     deleteAccount,
   }

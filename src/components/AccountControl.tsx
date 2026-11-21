@@ -9,7 +9,11 @@ import {
 } from '../lib/credentials'
 import { cn } from '../lib/cn'
 import { FormError } from './FormError'
-import { INPUT_CLASS, PRIMARY_BUTTON_CLASS } from './formStyles'
+import {
+  INPUT_CLASS,
+  PRIMARY_BUTTON_CLASS,
+  SECONDARY_BUTTON_CLASS,
+} from './formStyles'
 import { CloseIcon, EyeIcon, EyeOffIcon } from './icons'
 
 interface AccountControlProps {
@@ -20,6 +24,51 @@ type FormMode = 'sign-in' | 'sign-up'
 
 const HEADER_CONTROL_CLASS =
   'inline-flex h-9 max-w-40 cursor-pointer items-center truncate rounded-full border border-line bg-surface px-3.5 text-sm text-ink transition-colors hover:bg-surface-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-cyan-500/60 disabled:cursor-wait disabled:opacity-60'
+
+type ResendState = 'idle' | 'pending' | 'sent'
+
+/** Renvoie l'e-mail de confirmation, par exemple si le premier est perdu ou expiré. */
+function ResendConfirmationButton({
+  auth,
+  email,
+  className,
+}: {
+  auth: UseAuthResult
+  email: string
+  className?: string
+}) {
+  const [state, setState] = useState<ResendState>('idle')
+  const [error, setError] = useState<string | null>(null)
+
+  const resend = async () => {
+    setState('pending')
+    setError(null)
+    const message = await auth.resendConfirmation(email)
+    setError(message)
+    setState(message ? 'idle' : 'sent')
+  }
+
+  return (
+    <div className={cn('flex flex-col gap-2', className)}>
+      {state === 'sent' ? (
+        <p role="status" className="text-sm text-emerald-700 dark:text-emerald-300">
+          Nouveau lien envoyé à <strong>{email}</strong>. Pense à regarder dans
+          les spams.
+        </p>
+      ) : (
+        <button
+          type="button"
+          disabled={state === 'pending'}
+          onClick={resend}
+          className={cn(SECONDARY_BUTTON_CLASS, 'w-full')}
+        >
+          Renvoyer le lien de confirmation
+        </button>
+      )}
+      <FormError message={error} />
+    </div>
+  )
+}
 
 interface AuthFormProps {
   auth: UseAuthResult
@@ -32,6 +81,8 @@ function AuthForm({ auth, onSuccess }: AuthFormProps) {
   const [pending, setPending] = useState(false)
   const [passwordVisible, setPasswordVisible] = useState(false)
   const [confirmationEmail, setConfirmationEmail] = useState<string | null>(null)
+  // Connexion refusée car l'adresse n'est pas confirmée : on propose de renvoyer le lien.
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null)
   const isSignUp = mode === 'sign-up'
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -43,6 +94,7 @@ function AuthForm({ auth, onSuccess }: AuthFormProps) {
 
     setPending(true)
     setError(null)
+    setUnconfirmedEmail(null)
 
     if (isSignUp) {
       const result = await auth.signUp({
@@ -64,11 +116,12 @@ function AuthForm({ auth, onSuccess }: AuthFormProps) {
       return
     }
 
-    const message = await auth.signIn(email, password)
+    const result = await auth.signIn(email, password)
     setPending(false)
 
-    if (message) {
-      setError(message)
+    if (result.error) {
+      setError(result.error)
+      setUnconfirmedEmail(result.needsEmailConfirmation ? email.trim() : null)
     } else {
       onSuccess()
     }
@@ -81,10 +134,20 @@ function AuthForm({ auth, onSuccess }: AuthFormProps) {
           Vérifie ta boîte mail
         </h2>
         <p className="mt-1 break-words text-sm text-ink-muted">
-          Si cette adresse peut être utilisée, un lien d’activation vient d’être
-          envoyé à <strong className="text-ink">{confirmationEmail}</strong>.
-          Clique dessus pour activer ton compte, puis connecte-toi.
+          Un lien d’activation vient d’être envoyé à{' '}
+          <strong className="text-ink">{confirmationEmail}</strong>. Clique
+          dessus : ton compte sera activé et ta session ouverte
+          automatiquement.
         </p>
+        <p className="mt-2 text-sm text-ink-muted">
+          Rien reçu après quelques minutes ? Regarde dans les spams, ou
+          demande un nouveau lien.
+        </p>
+        <ResendConfirmationButton
+          auth={auth}
+          email={confirmationEmail}
+          className="mt-5"
+        />
         <button
           type="button"
           onClick={() => {
@@ -92,7 +155,7 @@ function AuthForm({ auth, onSuccess }: AuthFormProps) {
             setPasswordVisible(false)
             setMode('sign-in')
           }}
-          className={cn(PRIMARY_BUTTON_CLASS, 'mt-5')}
+          className={cn(PRIMARY_BUTTON_CLASS, 'mt-3')}
         >
           Retour à la connexion
         </button>
@@ -172,6 +235,14 @@ function AuthForm({ auth, onSuccess }: AuthFormProps) {
 
         <FormError message={error} />
 
+        {unconfirmedEmail && (
+          <ResendConfirmationButton
+            key={unconfirmedEmail}
+            auth={auth}
+            email={unconfirmedEmail}
+          />
+        )}
+
         <button type="submit" disabled={pending} className={PRIMARY_BUTTON_CLASS}>
           {isSignUp ? 'Créer mon compte' : 'Me connecter'}
         </button>
@@ -191,6 +262,7 @@ function AuthForm({ auth, onSuccess }: AuthFormProps) {
           onClick={() => {
             setMode(isSignUp ? 'sign-in' : 'sign-up')
             setError(null)
+            setUnconfirmedEmail(null)
           }}
           className="cursor-pointer font-medium text-accent underline-offset-2 hover:underline"
         >
