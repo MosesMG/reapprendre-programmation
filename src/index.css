@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@import "react-phone-input-2/lib/style.css";
 
 @custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
 
@@ -82,6 +83,88 @@
     background-color: rgb(139 92 246 / 0.35);
     color: var(--ink);
   }
+}
+
+/* Champ téléphone : aligné sur les autres champs, en thème clair comme sombre. */
+.account-phone.react-tel-input {
+  font-family: inherit;
+  color: var(--ink);
+}
+
+.account-phone.react-tel-input .form-control {
+  width: 100%;
+  height: 38px;
+  border-color: var(--line-strong);
+  border-radius: 0.5rem;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.875rem;
+}
+
+.account-phone.react-tel-input .form-control:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgb(6 182 212 / 0.6);
+}
+
+.account-phone.react-tel-input .flag-dropdown,
+.account-phone.react-tel-input .flag-dropdown.open,
+.account-phone.react-tel-input .flag-dropdown.open .selected-flag {
+  border-color: var(--line-strong);
+  border-radius: 0.5rem 0 0 0.5rem;
+  background: var(--surface-strong);
+}
+
+.account-phone.react-tel-input .selected-flag {
+  border-radius: 0.5rem 0 0 0.5rem;
+}
+
+.account-phone.react-tel-input .selected-flag:hover,
+.account-phone.react-tel-input .selected-flag:focus {
+  background: var(--surface-hover);
+}
+
+.account-phone.react-tel-input .selected-flag .arrow {
+  border-top-color: var(--ink-muted);
+}
+
+.account-phone.react-tel-input .selected-flag .arrow.up {
+  border-bottom-color: var(--ink-muted);
+}
+
+.account-phone.react-tel-input .country-list {
+  /* La liste se positionne par rapport au drapeau, pas au champ : sa largeur
+     doit tenir dans la fenêtre de connexion, y compris sur petit écran. */
+  width: min(20rem, calc(100vw - 5.5rem));
+  max-height: 180px;
+  margin-top: 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0.5rem;
+  background: var(--canvas);
+  color: var(--ink);
+}
+
+.account-phone.react-tel-input .country-list .search {
+  padding: 10px;
+  background: var(--canvas);
+}
+
+.account-phone.react-tel-input .country-list .search-box {
+  width: 100%;
+  margin: 0;
+  border-color: var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 0.875rem;
+}
+
+.account-phone.react-tel-input .country-list .country:hover,
+.account-phone.react-tel-input .country-list .country.highlight {
+  background: var(--surface-strong);
+}
+
+.account-phone.react-tel-input .country-list .country .dial-code,
+.account-phone.react-tel-input .country-list .no-entries-message {
+  color: var(--ink-muted);
 }
 
 /* Grille discrète en arrière-plan, estompée vers le bas. */

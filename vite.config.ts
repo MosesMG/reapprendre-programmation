@@ -1,10 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { progressPlugin } from './server/progressPlugin'
 
 export default defineConfig({
-  plugins: [react(), progressPlugin()],
+  plugins: [react()],
   server: {
-    host: true,
+     host: true
   },
 })

@@ -7,7 +7,7 @@ interface ProgressNoticeProps {
 
 function getNotice(status: ProgressStatus, saveFailed: boolean) {
   if (status === 'unavailable') {
-    return 'Progression indisponible : lance la page avec npm run dev ou npm run preview, et vérifie data/progress.json.'
+    return 'Impossible de charger la progression de ton compte. Réessaie dans un moment.'
   }
 
   return saveFailed ? 'La dernière coche n’a pas pu être enregistrée.' : null
